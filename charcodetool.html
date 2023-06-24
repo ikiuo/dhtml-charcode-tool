@@ -218,7 +218,7 @@
          }
 
          static toId(name) {
-             return `CodePoint_${name.replaceAll('-', '_')}`;
+             return `CodePoint_${name.replaceAll(/[-( )]/g, '_')}`;
          }
      }
 
@@ -305,7 +305,7 @@
          }
 
          static toId(name) {
-             return `Normalize_${name}`;
+             return `Normalize_${name.replaceAll(/[-( )]/g,'_')}`;
          }
      }
 
@@ -362,7 +362,7 @@
          }
 
          static toId(name) {
-             return `AlphaNumeric ${name}`.replaceAll(' ', '_');
+             return `AlphaNumeric ${name}`.replaceAll(/[-( )]/g, '_');
          }
      }
 
