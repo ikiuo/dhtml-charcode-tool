@@ -41,9 +41,10 @@
           <button onclick="onClick('CodePoint')">コード ポイント</button>
           <button onclick="onClick('InnerHTML')">innerHTML</button>
           <br/>&nbsp;
-          <button onclick="onClick('AlphaNumeric')">英数字の変換</button>
-          <button onclick="onClick('Circled')">円内文字への変換</button>
-          <button onclick="onClick('Parenthesized')">丸括弧付き文字への変換</button>
+          <button onclick="onClick('AlphaNumeric')">英数字変換</button>
+          <button onclick="onClick('Circled')">円内文字変換</button>
+          <button onclick="onClick('Parenthesized')">丸括弧文字変換</button>
+          <button onclick="onClick('Variation')">異字体設定</button>
         </td>
       </tr>
     </table>
@@ -84,6 +85,9 @@
       </tr>
     </table>
 
+    <table id="Variation">
+    </table>
+
     <script>
 
      // ----------------------------------------------------------------------
@@ -91,6 +95,7 @@
      const OutputTable = [
          'Normalize', 'CodePoint', 'InnerHTML',
          'AlphaNumeric', 'Circled', 'Parenthesized',
+         'Variation',
      ];
 
      var lastMode = '';
@@ -313,6 +318,8 @@
 
      class ConvertAlphaNumeric {
          static TypeTable = {
+             'SUPERSCRIPT': ['⁰','¹','²','³','⁴','⁵','⁶','⁷','⁸','⁹','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','','ⁱ','','','','','ⁿ','','','','','','','','','','','',''],
+             'SUBSCRIPT': ['₀','₁','₂','₃','₄','₅','₆','₇','₈','₉','','','','','','','','','','','','','','','','','','','','','','','','','','','ₐ','','','','ₑ','','','ₕ','ᵢ','ⱼ','ₖ','ₗ','ₘ','ₙ','ₒ','ₚ','','ᵣ','ₛ','ₜ','ᵤ','ᵥ','','ₓ','',''],
              'FULLWIDTH': ['０','１','２','３','４','５','６','７','８','９','Ａ','Ｂ','Ｃ','Ｄ','Ｅ','Ｆ','Ｇ','Ｈ','Ｉ','Ｊ','Ｋ','Ｌ','Ｍ','Ｎ','Ｏ','Ｐ','Ｑ','Ｒ','Ｓ','Ｔ','Ｕ','Ｖ','Ｗ','Ｘ','Ｙ','Ｚ','ａ','ｂ','ｃ','ｄ','ｅ','ｆ','ｇ','ｈ','ｉ','ｊ','ｋ','ｌ','ｍ','ｎ','ｏ','ｐ','ｑ','ｒ','ｓ','ｔ','ｕ','ｖ','ｗ','ｘ','ｙ','ｚ'],
              'MATHEMATICAL BOLD': ['𝟎','𝟏','𝟐','𝟑','𝟒','𝟓','𝟔','𝟕','𝟖','𝟗','𝐀','𝐁','𝐂','𝐃','𝐄','𝐅','𝐆','𝐇','𝐈','𝐉','𝐊','𝐋','𝐌','𝐍','𝐎','𝐏','𝐐','𝐑','𝐒','𝐓','𝐔','𝐕','𝐖','𝐗','𝐘','𝐙','𝐚','𝐛','𝐜','𝐝','𝐞','𝐟','𝐠','𝐡','𝐢','𝐣','𝐤','𝐥','𝐦','𝐧','𝐨','𝐩','𝐪','𝐫','𝐬','𝐭','𝐮','𝐯','𝐰','𝐱','𝐲','𝐳'],
              'MATHEMATICAL ITALIC': ['','','','','','','','','','','𝐴','𝐵','𝐶','𝐷','𝐸','𝐹','𝐺','𝐻','𝐼','𝐽','𝐾','𝐿','𝑀','𝑁','𝑂','𝑃','𝑄','𝑅','𝑆','𝑇','𝑈','𝑉','𝑊','𝑋','𝑌','𝑍','𝑎','𝑏','𝑐','𝑑','𝑒','𝑓','𝑔','ℎ','𝑖','𝑗','𝑘','𝑙','𝑚','𝑛','𝑜','𝑝','𝑞','𝑟','𝑠','𝑡','𝑢','𝑣','𝑤','𝑥','𝑦','𝑧'],
@@ -535,6 +542,38 @@
 
      // ----------------------------------------------------------------------
 
+     class ConvertVariationSelector {
+         static variationSelector = [
+             [...Array(16)].map((_, n) => [String.fromCodePoint(n + 0xfe00), (n + 0xfe00).toString(16)]),
+             [...Array(256-16)].map((_, n) => [String.fromCodePoint(n + 0xe0100), (n + 0xe0100).toString(16)])
+         ].flat();
+
+         static replace(text, vsel) {
+             return [...text].map(s => {
+                 const code = s.codePointAt(0);
+                 if ((0xfe00 <= code && code <= 0xfe0f) ||
+                     (0x0e0100 <= code && code <= 0x0e01ef))
+                     return '';
+                 return s + vsel;
+             }).join('');
+         }
+
+         static toHTML(text) {
+             return [
+                 '<tr><th colspan="2">異字体コード追加</th></tr>',
+                 '<tr><th>種類</th><th>結果</th></tr>',
+                 ConvertVariationSelector.variationSelector.map((vs, i) => [
+                     '<tr>',
+                     `<th><button onclick="toClipboard(VS_${vs[1]}.innerText)">VS${i+1}</button></th>`,
+                     `<td id="VS_${vs[1]}">${encodeHTML(ConvertVariationSelector.replace(text, vs[0]))}</td>`,
+                     '</tr>'
+                 ].join(''))
+             ].flat().join('');
+         }
+     }
+
+     // ----------------------------------------------------------------------
+
      function toClipboard(text) {
          navigator.clipboard.writeText(text).then(() => {
              // success
@@ -551,16 +590,17 @@
              C.TypeTable.forEach(name => document.getElementById(C.toId(name)).innerHTML = new C(name, text).toHTML());
              return;
          }
-         if (lastMode == 'InnerHTML') {
-             InnerHTML_output.innerHTML = text;
-             return;
-         }
          if (lastMode == 'CodePoint') {
              const C = CodePointRuby;
              const gen = new C(text);
              C.TypeTable.forEach(name => document.getElementById(C.toId(name)).innerHTML = gen.toHTML(name));
              return;
          }
+         if (lastMode == 'InnerHTML') {
+             InnerHTML_output.innerHTML = text;
+             return;
+         }
+
          if (lastMode == 'AlphaNumeric') {
              const C = ConvertAlphaNumeric;
              Object.keys(C.TypeTable).forEach(name =>
@@ -575,6 +615,11 @@
          }
          if (lastMode == 'Parenthesized') {
              Parenthesized_output.innerHTML = encodeHTML(ConvertParenthesized.replace(text));
+             return;
+         }
+
+         if (lastMode == 'Variation') {
+             Variation.innerHTML = ConvertVariationSelector.toHTML(text);
              return;
          }
      }
