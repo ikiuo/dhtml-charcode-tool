@@ -22,6 +22,9 @@
      .left {
          text-align: left;
      }
+     .noborder {
+         border-width: 0;
+     }
     </style>
   </head>
   <body>
@@ -86,6 +89,16 @@
     </table>
 
     <table id="Variation">
+    </table>
+
+    <div>&nbsp;</div>
+    <table hidden id="toClipStat" class="noborder">
+      <tr><td class="noborder">
+        <div>クリップ ボードへのコピー:</div>
+        <blockquote>
+          <div id="toClipText" style="background-color: #efefef;"></div>
+        </blockquote>
+      </td></tr>
     </table>
 
     <script>
@@ -406,13 +419,13 @@
                  },
              ],
              /*
-             'COMBINING DIACRITICAL MARKS' : [
-                 '','','','','','','','','','',
-                 '','','','','','','ᷛ','','','','','ᷞ','ᷟ',
-                 'ᷡ','','','','ᷢ','','','','','','','','',
-                 'ͣ','','ͨ','ͩ','ͤ','ᷥ','','ͪ','ͥ','','ᷜ','ᷝ','ͫ',
-                 'ᷠ','ͦ','','','ͬ','ᷤ','ͭ','ͧ','ͮ','','ͯ','','ᷦ',
-             ],
+                'COMBINING DIACRITICAL MARKS' : [
+                '','','','','','','','','','',
+                '','','','','','','ᷛ','','','','','ᷞ','ᷟ',
+                'ᷡ','','','','ᷢ','','','','','','','','',
+                'ͣ','','ͨ','ͩ','ͤ','ᷥ','','ͪ','ͥ','','ᷜ','ᷝ','ͫ',
+                'ᷠ','ͦ','','','ͬ','ᷤ','ͭ','ͧ','ͮ','','ͯ','','ᷦ',
+                ],
               */
              'FULLWIDTH': [
                  '０','１','２','３','４','５','６','７','８','９',
@@ -609,7 +622,7 @@
          }
 
          static toId(name) {
-             return `AlphaNumeric ${name}`.replaceAll(/[-( )]/g, '_');
+             return `AlphaNumeric ${name}`.replaceAll(/[-+( )]/g, '_');
          }
      }
 
@@ -816,6 +829,8 @@
 
      function toClipboard(text) {
          navigator.clipboard.writeText(text).then(() => {
+             toClipStat.hidden = false;
+             toClipText.innerText = text;
              // success
          }, () => {
              // failed
@@ -888,7 +903,7 @@
                 n => n.replace('MATHEMATICAL ', 'MATHEMATICAL<br/>'));
          gentab(ConvertCircled, Circled, Object.keys(ConvertCircled.TypeTable), true);
 
-         let output_name = OutputTable[0];
+         let output_name = 'AlphaNumeric';
          {
              const url = new URL(window.location);
              const search = url.searchParams;
