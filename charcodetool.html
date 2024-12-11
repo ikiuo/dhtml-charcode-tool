@@ -244,13 +244,14 @@
              /* 2バイト文字 */
              for (let h = 0xa1; h <= 0xfe; ++h) {
                  view2.setUint8(0, h);
+                 const hh = h << 8
                  for (let l = 0xa1; l <= 0xfe; ++l) {
                      view2.setUint8(1, l);
                      const ds = decoder.decode(view2);
                      if (ds != undefined) {
                          const dc = ds.codePointAt(0);
                          if (dc != 0xfffd && !ucs.has(dc))
-                             ucs.set(dc, h | l);
+                             ucs.set(dc, hh | l);
                      }
                  }
              }
@@ -379,7 +380,7 @@
      // ----------------------------------------------------------------------
 
      class CodePointRuby {
-         static TypeTable = ['UTF-32', 'UTF-16', 'UTF-8'];
+         static TypeTable = ['UTF-32', 'UTF-16', 'UTF-8', 'シフトJIS', 'EUC-JP'];
 
          static flagSet = new Set([...Array(0x1f200 - 0x1f1e6)].map((_, n) => n + 0x1f1e6));
          static varselSet = new Set([
@@ -432,12 +433,27 @@
 
          toHTML(mode) {
              const C = this.C;
+             const encs = new SjisEncoder();
+             const ence = new EucJpEncoder();
 
              const bUTF8  = (mode == 'UTF-8');
              const bUTF16 = (mode == 'UTF-16');
              const bUTF32 = (mode == 'UTF-32');
+             const bSJIS = (mode == 'シフトJIS');
+             const bEUC = (mode == 'EUC-JP');
              const nBase = 16;
              const bPrefix = false;
+
+             function u8w(u8) {
+                 switch (u8.length) {
+                     case 0:
+                         return 0
+                     case 1:
+                         return u8[0]
+                     default:
+                         return u8[0] * 256 + u8[1]
+                 }
+             }
 
              let out = '';
              for (const line of this.lines) {
@@ -453,6 +469,11 @@
                              codes.push(data.charCodeAt(n));
                      } else if (bUTF8)
                          codes = [...data].map(c => toUTF8(c.codePointAt(0))).flat();
+                     else if (bSJIS)
+                         codes = [...data].map(c => u8w(encs.encode(c)))
+                     else if (bEUC)
+                         codes = [...data].map(c => u8w(ence.encode(c)))
+                     console.log(data, codes)
                      ruby += `<rt>[${codes.map(c => toString(c, nBase, bPrefix)).join(',')}]</rt>`;
                      ruby += '<rp>)</rp></ruby>';
                      out += ruby;
@@ -1083,18 +1104,18 @@
              return;
          }
          if (lastMode == 'GarbledCharacters') {
-             const iutf8 = new TextEncoder().encode(text)
-             const isjis = new SjisEncoder().encode(text)
-             const ieuc = new EucJpEncoder().encode(text)
+             const iutf8 = new TextEncoder().encode(text);
+             const isjis = new SjisEncoder().encode(text);
+             const ieuc = new EucJpEncoder().encode(text);
 
-             Garbled_UtoS.innerText = new SjisDecoder().decode(iutf8)
-             Garbled_StoU.innerText = new TextDecoder().decode(isjis)
+             Garbled_UtoS.innerText = new SjisDecoder().decode(iutf8);
+             Garbled_StoU.innerText = new TextDecoder().decode(isjis);
 
-             Garbled_UtoE.innerText = new EucJpDecoder().decode(iutf8)
-             Garbled_EtoU.innerText = new TextDecoder().decode(ieuc)
+             Garbled_UtoE.innerText = new EucJpDecoder().decode(iutf8);
+             Garbled_EtoU.innerText = new TextDecoder().decode(ieuc);
 
-             Garbled_StoE.innerText = new EucJpDecoder().decode(isjis)
-             Garbled_EtoS.innerText = new SjisDecoder().decode(ieuc)
+             Garbled_EtoS.innerText = new SjisDecoder().decode(ieuc);
+             Garbled_StoE.innerText = new EucJpDecoder().decode(isjis);
              return;
          }
 
