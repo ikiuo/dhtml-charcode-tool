@@ -43,7 +43,7 @@
           <button onclick="onClick('Normalize')">正規化形式</button>
           <button onclick="onClick('CodePoint')">コード ポイント</button>
           <button onclick="onClick('InnerHTML')">innerHTML</button>
-          <button onclick="onClick('GrabledCharacters')">文字化け</button>
+          <button onclick="onClick('GarbledCharacters')">文字化け</button>
           <br/>&nbsp;
           <button onclick="onClick('AlphaNumeric')">英数字(他)変換</button>
           <button onclick="onClick('Circled')">円内文字変換</button>
@@ -67,24 +67,57 @@
       <tr><th colspan="2">InnerHTML</th></tr>
       <tr><td id="InnerHTML_output"></td></tr>
     </table>
-    <table id="GrabledCharacters">
+
+    <table id="GarbledCharacters">
       <tr><th colspan="2">文字化け変換</th></tr>
       <tr><th>形式</th><th>結果</th></tr>
       <tr>
         <th class="left">
-          <button onclick="toClipboard(Grabled_StoU.innerText)">
+          <button onclick="toClipboard(Garbled_StoU.innerText)">
             シフトJIS → UTF-8
           </button>
         </th>
-        <td id="Grabled_StoU"></td>
+        <td id="Garbled_StoU"></td>
       </tr>
       <tr>
         <th class="left">
-          <button onclick="toClipboard(Grabled_UtoS.innerText)">
+          <button onclick="toClipboard(Garbled_UtoS.innerText)">
             UTF-8 → シフトJIS
           </button>
         </th>
-        <td id="Grabled_UtoS"></td>
+        <td id="Garbled_UtoS"></td>
+      </tr>
+      <tr>
+        <th class="left">
+          <button onclick="toClipboard(Garbled_EtoU.innerText)">
+            EUC-JP → UTF-8
+          </button>
+        </th>
+        <td id="Garbled_EtoU"></td>
+      </tr>
+      <tr>
+        <th class="left">
+          <button onclick="toClipboard(Garbled_UtoE.innerText)">
+            UTF-8 → EUC-JP
+          </button>
+        </th>
+        <td id="Garbled_UtoE"></td>
+      </tr>
+      <tr>
+        <th class="left">
+          <button onclick="toClipboard(Garbled_EtoS.innerText)">
+            EUC-JP → シフトJIS
+          </button>
+        </th>
+        <td id="Garbled_EtoS"></td>
+      </tr>
+      <tr>
+        <th class="left">
+          <button onclick="toClipboard(Garbled_StoE.innerText)">
+            シフトJIS → EUC-JP
+          </button>
+        </th>
+        <td id="Garbled_StoE"></td>
       </tr>
     </table>
 
@@ -127,7 +160,7 @@
      // ----------------------------------------------------------------------
 
      const OutputTable = [
-         'Normalize', 'CodePoint', 'InnerHTML', 'GrabledCharacters',
+         'Normalize', 'CodePoint', 'InnerHTML', 'GarbledCharacters',
          'AlphaNumeric', 'Circled', 'Parenthesized',
          'Variation',
      ];
@@ -172,9 +205,94 @@
 
      // ----------------------------------------------------------------------
 
+     class EucJpDecoder extends TextDecoder {
+         constructor() {
+             super('euc-jp');
+         }
+     }
+
      class SjisDecoder extends TextDecoder {
          constructor() {
              super('sjis');
+         }
+     }
+
+     class EucJpEncoder {
+         static #codeMap = (() => {
+             const decoder = new EucJpDecoder();
+             const sjdecoder = new SjisDecoder();
+             const buffer = new ArrayBuffer(2);
+             const view1 = new DataView(buffer, 0, 1);
+             const view2 = new DataView(buffer);
+             const ucs = new Map();
+
+             /* ASCII */
+             for (let c = 0x00; c <= 0x7F; ++c)
+                 ucs.set(c, c);
+
+             /* 片仮名 */
+             for (let c = 0xA1; c <= 0xDF; ++c) {
+                 view1.setUint8(0, c);
+                 const ds = sjdecoder.decode(view1);
+                 if (ds != undefined) {
+                     const dc = ds.codePointAt(0);
+                     if (dc != 0xfffd && !ucs.has(dc))
+                         ucs.set(dc, c | 0x8e00);
+                 }
+             }
+
+             /* 2バイト文字 */
+             for (let h = 0xa1; h <= 0xfe; ++h) {
+                 view2.setUint8(0, h);
+                 for (let l = 0xa1; l <= 0xfe; ++l) {
+                     view2.setUint8(1, l);
+                     const ds = decoder.decode(view2);
+                     if (ds != undefined) {
+                         const dc = ds.codePointAt(0);
+                         if (dc != 0xfffd && !ucs.has(dc))
+                             ucs.set(dc, h | l);
+                     }
+                 }
+             }
+
+             /* その他 */
+             ucs.set(0x00A5, 0x005C);
+             ucs.set(0x203E, 0x007E);
+             ucs.set(0x00A0, 0x00A0);
+             ucs.set(0x301C, 0xA1C1);
+             ucs.set(0x2212, 0xA1DD);
+             ucs.set(0x00A2, 0xA1F1);
+             ucs.set(0x00A3, 0xA1F2);
+             ucs.set(0x00AC, 0xA2CC);
+
+             return ucs;
+         })();
+
+         encode(text, callback) {
+             if (callback == undefined)
+                 callback = (() => 0x8148); // '？'
+
+             const table = EucJpEncoder.#codeMap;
+             const buffer = new ArrayBuffer(text.length * 2);
+             const view = new DataView(buffer);
+             let vpos = 0;
+
+             for (let ti = 0; ti < text.length; ++ti) {
+                 const code = text.codePointAt(ti);
+
+                 ti += (code >= 0x10000);
+                 if ((0x0fe00 <= code && code <= 0x0fe0f) ||
+                     (0xe0100 <= code && code <= 0xe01ef))
+                     continue;
+
+                 const euc = table.get(code) ?? callback(code);
+                 if (euc >= 0) {
+                     if (euc >= 256)
+                         view.setUint8(vpos++, euc >> 8);
+                     view.setUint8(vpos++, euc);
+                 }
+             }
+             return new Uint8Array(buffer, 0, vpos);
          }
      }
 
@@ -964,11 +1082,19 @@
              InnerHTML_output.innerHTML = text;
              return;
          }
-         if (lastMode == 'GrabledCharacters') {
+         if (lastMode == 'GarbledCharacters') {
              const iutf8 = new TextEncoder().encode(text)
              const isjis = new SjisEncoder().encode(text)
-             Grabled_UtoS.innerText = new SjisDecoder().decode(iutf8)
-             Grabled_StoU.innerText = new TextDecoder().decode(isjis)
+             const ieuc = new EucJpEncoder().encode(text)
+
+             Garbled_UtoS.innerText = new SjisDecoder().decode(iutf8)
+             Garbled_StoU.innerText = new TextDecoder().decode(isjis)
+
+             Garbled_UtoE.innerText = new EucJpDecoder().decode(iutf8)
+             Garbled_EtoU.innerText = new TextDecoder().decode(ieuc)
+
+             Garbled_StoE.innerText = new EucJpDecoder().decode(isjis)
+             Garbled_EtoS.innerText = new SjisDecoder().decode(ieuc)
              return;
          }
 
@@ -1027,7 +1153,7 @@
                  'norm': 'Normalize',
                  'code': 'CodePoint',
                  'inner': 'InnerHTML',
-                 'grabled': 'GrabledCharacters',
+                 'garbled': 'GarbledCharacters',
                  'alnum': 'AlphaNumeric',
                  'circle': 'Circled',
                  'paren': 'Parenthesized',
